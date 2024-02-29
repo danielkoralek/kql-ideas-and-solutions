@@ -1,0 +1,46 @@
+// KQL with ranking based on available Window Function
+
+let customers = datatable(customerId:int, customerName:string, state:string)
+[
+    1,"Jack","AL",
+    2,"Mike","OH",
+    3,"Deny","IL",
+    4,"Marisa","OH"
+];
+let products = datatable(productId:int, productName:string, productPrice:real)
+[
+    1,"Orange",8.99,
+    2,"Lemon",5.50,
+    3,"Apple",6.35,
+    4,"Grape",7.70
+];
+let orders = datatable(orderNum:int, productId:int, customerId:int, quantity:int)
+[
+    1, 1, 1, 10,
+    2, 1, 2, 3,
+    3, 2, 3, 12,
+    4, 2, 1, 12,
+    5, 2, 4, 6,
+    6, 4, 2, 12,
+    7, 3, 3, 12,
+    8, 3, 1, 6,
+    9, 1, 4, 12,
+    10, 1, 3, 6,
+    11, 2, 2, 3,
+    12, 4, 1, 4,
+    13, 4, 2, 3,
+    14, 4, 3, 2,
+    15, 4, 4, 6
+];
+let customerOrders = orders
+| join kind=inner customers on customerId;
+let groupedSells = materialize(customerOrders
+| join kind=inner products on productId
+| extend orderValue = quantity * productPrice
+| summarize totalSell=sum(orderValue) by productName, state);
+groupedSells
+| sort by state, totalSell,productName
+| extend rank = row_number(1, prev(state) != state)
+| where rank <= 1 // play with this // <= 2
+| project state, rank, productName, totalSell
+ 
