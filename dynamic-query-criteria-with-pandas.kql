@@ -1,0 +1,16 @@
+.create-or-alter function generateCSV(criteria:string, hardcode1:string, hardcode2:string) {
+bigSourceTableNew
+| sample 10000 // manage data volume with any timestamp filter (reduce data volume 1)
+| project id, central, region, operation, data=['date'], val=value // reduce data volume 2 with specifying columns
+| evaluate python(typeof(*),
+```
+q = kargs["crit"]
+result = df.query(q)
+```
+, bag_pack('crit', criteria)  // pass criteria parameter to Python
+)
+| take 100
+| project id, central, region, data, val, value1=hardcode1, value2=hardcode2 // project output
+}
+ 
+generateCSV(' central == "MKST" and region == 8 and (val < 30 or data == "2019-10-26T00:00:00Z") ', 'HC1', 'HC2')
