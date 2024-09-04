@@ -1,0 +1,43 @@
+// Creating table and data for anomaly detection case study
+ 
+ 
+.create table taxHistory (TaxName:string, Timestamp:datetime, Tax:real)
+ 
+// Repeat with changing TaxName (App1, App2, App3)
+ 
+ 
+.set-or-append taxHistory <|
+    let ts = range t from 1 to 30*24*60 step 1
+    | extend Timestamp = datetime(2024-08-30) - 5m * t
+    | extend Tax = 2*rand() + iff((t/24)%7>=5, 10.0, 15.0) - (((t%24)/10)*((t%24)/10))
+    | extend Tax = iff(t%3113 == 0, Tax-8.7, Tax) // add some dip outliers
+    | extend Tax = iff(t%1775 == 0, Tax+9.7, Tax) // add some spike outliers
+    | summarize Timestamp=make_list(Timestamp,50000),Tax=make_list(Tax,50000);
+    ts
+    | extend TaxName = 'App1'
+    | mv-expand Timestamp to typeof(datetime), Tax to typeof(real)
+    | project TaxName, Timestamp, Tax
+ 
+ 
+let stime = todatetime(toscalar(taxHistory | summarize min(Timestamp)));
+let etime = stime + 30d;
+let dtStep = 5m;
+let threshold = 7.0;
+taxHistory
+| make-series Tax = avg(Tax) on Timestamp from stime to etime step dtStep by TaxName
+| extend Anomalies = series_decompose_anomalies(Tax, threshold)
+| render anomalychart
+ 
+// scope only the anomalies
+ 
+let stime = todatetime(toscalar(taxHistory | summarize min(Timestamp)));
+let etime = stime + 30d;
+let dtStep = 5m;
+let threshold = 2.0;
+taxHistory
+| make-series Tax = avg(Tax) on Timestamp from stime to etime step dtStep by TaxName
+| extend Anomalies = series_decompose_anomalies(Tax, threshold)
+| mv-expand Anomalies, Tax to typeof(real), Timestamp to typeof(datetime)
+| where Anomalies > 0
+| render scatterchart  with (series=TaxName)
+ 
