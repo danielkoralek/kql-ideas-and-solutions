@@ -1,0 +1,10 @@
+let threshold = 2.0;
+let ts = range t from 1 to 30*24*60 step 1
+| extend Timestamp = datetime(2024-08-30) - 5m * t
+| extend Tax = 2*rand() + iff((t/24)%7>=5, 10.0, 15.0) - (((t%24)/10)*((t%24)/10))
+| extend Tax = iff(t%1133 == 0, Tax-8.7, Tax) // add some dip outliers
+| extend Tax = iff(t%5771 == 0, Tax+9.7, Tax) // add some spike outliers
+| summarize Timestamp=make_list(Timestamp,50000),Tax=make_list(Tax,50000);
+ts
+| extend Anomalies = series_decompose_anomalies(Tax, threshold)
+| render anomalychart
