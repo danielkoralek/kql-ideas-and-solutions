@@ -1,0 +1,40 @@
+.create table rawTable (id:long, name:string)
+ 
+.create table finalTable (id:long, name:string, ingestTime:datetime)
+ 
+.create function with (docstring = 'Demo Update Policy', folder = 'DemoUpdatePolicy')
+    CaptureRawData()
+    {
+    rawTable
+    | extend name = toupper(name)
+    | extend ingestTime = ingestion_time()
+    | project id, name, ingestTime
+}
+ 
+.alter table finalTable policy update
+@'[{ "IsEnabled": true, "Source": "rawTable", "Query": "CaptureRawData()", "IsTransactional": true, "PropagateIngestionProperties": false}]'
+ 
+.ingest inline into table rawTable <|
+1, Name1
+ 
+finalTable
+ 
+.ingest inline into table rawTable <|
+1, Name1 upsert
+2, Name 2
+ 
+finalTable
+| summarize arg_max(ingestTime, *) by id
+ 
+rawTable
+ 
+ 
+finalTable
+ 
+.create function
+    with (view=true, docstring='Dedup Final Table', folder='DemoView')  
+    FinalTable() {
+        finalTable | summarize arg_max(ingestTime, *) by id
+    }
+ 
+FinalTable
