@@ -6,4 +6,4 @@ Repo for sharing KQL (Kusto Query Language) queries and solutions for day-to-day
 
 * KQL Code examples and solutions
 * Python SDK code examples
-* Powershell SDK code examples
+* Powershell SDK code examples (soon)
