@@ -1,0 +1,2 @@
+*.kql linguist-language=KQL
+*.py linguist-vendored
