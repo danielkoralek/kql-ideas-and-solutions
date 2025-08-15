@@ -1,0 +1,49 @@
+// Window Function > Rolling Difference
+
+let _log = datatable(VMId:string, ts:datetime, status:string) [
+    "vm1", datetime(2024-02-21T08:12:18.000000Z), "up",
+    "vm2", datetime(2024-02-21T08:12:18.000000Z), "up",
+    "vm1", datetime(2024-02-21T08:12:20.000000Z), "down",
+    "vm2", datetime(2024-02-21T08:12:20.000000Z), "down",
+    "vm1", datetime(2024-02-21T08:12:23.000000Z), "up",
+    "vm1", datetime(2024-02-21T08:12:24.000000Z), "down",
+    "vm1", datetime(2024-02-21T08:12:25.000000Z), "up",
+    "vm2", datetime(2024-02-21T08:12:26.000000Z), "up",
+    "vm1", datetime(2024-02-21T08:12:28.000000Z), "down",
+    "vm1", datetime(2024-02-21T08:12:38.000000Z), "up",
+    "vm1", datetime(2024-03-21T08:12:20.000000Z), "down",
+    "vm2", datetime(2024-03-21T08:12:20.000000Z), "down",    
+    "vm1", datetime(2024-03-21T08:12:22.000000Z), "up",
+    "vm2", datetime(2024-03-21T08:12:23.000000Z), "up",
+    "vm1", datetime(2024-03-21T08:12:24.000000Z), "down",
+    "vm1", datetime(2024-03-21T08:12:26.000000Z), "up",
+    "vm2", datetime(2024-03-21T08:12:27.000000Z), "down",
+    "vm1", datetime(2024-03-21T08:12:28.000000Z), "down",
+    "vm2", datetime(2024-03-21T08:12:33.000000Z), "up",
+    "vm1", datetime(2024-03-21T08:12:38.000000Z), "up",
+];
+let _reason = datatable(VMId:string, ts:datetime, reason:string) [
+    "vm1", datetime(2024-02-21T08:12:20.000000Z), "Memory pressure",
+    "vm1", datetime(2024-02-21T08:12:24.000000Z), "Connectivity",
+    "vm1", datetime(2024-02-21T08:12:28.000000Z), "Connectivity",
+    "vm1", datetime(2024-03-21T08:12:20.000000Z), "Memory pressure",
+    "vm1", datetime(2024-03-21T08:12:24.000000Z), "Memory pressure",
+    "vm1", datetime(2024-03-21T08:12:28.000000Z), "Networking",
+    "vm2", datetime(2024-02-21T08:12:20.000000Z), "Connectivity",
+    "vm2", datetime(2024-03-21T08:12:20.000000Z), "Networking",  
+    "vm2", datetime(2024-03-21T08:12:27.000000Z), "Networking",    
+];
+let _downtime = materialize(_log
+| sort by VMId asc , ts asc
+//| extend statusTime = datetime_diff('millisecond', iff((VMId == prev(VMId)), prev(ts, 1), 0), ts)
+| extend previousTime = iff(VMId == prev(VMId), prev(ts, 1), ts)
+| extend statusTime = datetime_diff('second', ts, previousTime)
+| where status == "down"
+);
+_downtime
+| join kind=inner (
+    _reason
+    | project VMId, ts, reason
+) on VMId, ts
+| summarize avgDownTime=avg(statusTime), numOfEvents=count() by VMId, reason, bin(ts, 30d)
+| project VMId, month=format_datetime(ts, 'yyyy-MM'), numOfEvents, avgDownTime, reason
