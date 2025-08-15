@@ -1,0 +1,14 @@
+// Plotly Render leveraging Pandas Dataframe
+
+threeHundred
+| extend dd = substring(Date, 0,2)
+| extend mm = substring(Date, 3,2)
+| evaluate python(typeof(plotly:string),
+```if 1:
+    import plotly.express as px
+    fig = px.scatter_3d(df, x='Amount', y='Ref', z='dd', color='mm')
+    fig.update_layout(title=dict(text='3D scatter chart using Plotly'))
+    plotly_obj = fig.to_json()
+    result = pd.DataFrame(data = [plotly_obj], columns = ['plotly'])
+```)
+| render plotly
